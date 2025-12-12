@@ -1,426 +1,158 @@
-# Comic Crafter
+# Comic Crafter - Local Version
 
-A web application for creating comics with AI-generated images, built with React frontend and Python backend services. Features fine-tuned LORA weights for Japanese manga style generation.
-
-## Project Structure
-
-```
-├── client/                 # React frontend application
-│   ├── components/         # React components for the UI
-│   ├── services/           # API service utilities
-│   ├── public/             # Static assets
-│   ├── src/                # Source code
-│   ├── package.json        # Dependencies and scripts
-│   └── ...
-├── server/                 # Backend API services
-│   ├── app.py              # Main Flask application with LORA integration
-│   ├── requirements.txt    # Python dependencies
-│   └── ...
-├── utils/                  # Python utility scripts
-│   ├── setup_sd.py         # Script to download and set up the base model
-│   ├── img_generate_sd.py  # Script for image generation with LORA weights
-│   ├── ollama_setup.py     # Script for Ollama setup in Google Colab
-│   └── ...
-├── models/                 # Trained models including LORA weights
-│   └── weights/            # LORA fine-tuned weights for comic generation
-│       └── pytorch_lora_weights.safetensors # Fine-tuned model weights
-├── docs/                   # Documentation files
-├── README.md               # This file
-└── package.json            # Root package configuration
-```
-
-## Prerequisites
-
-- Node.js (for the frontend)
-- Python 3.8+ (for the backend)
-- Git
-- Access to Google Colab (for cloud deployment)
-
-## Deployment Options
-
-### Option 1: Local Development
-
-#### Frontend Setup
-1. Navigate to the client directory:
-   ```bash
-   cd client
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Create a `.env` file with API configuration:
-   ```
-   VITE_API_BASE_URL=http://localhost:5000
-   ```
-
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-#### Backend Setup
-1. Navigate to the server directory:
-   ```bash
-   cd server
-   ```
-
-2. Set up a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Download the base model and ensure LORA weights are in place:
-   ```bash
-   cd ../utils
-   python setup_sd.py
-   ```
-   This will check for and use the LORA weights in the models directory.
-
-5. Start the backend server:
-   ```bash
-   cd ../server
-   python app.py
-   ```
-
-### Option 2: Google Colab Deployment
-
-This setup is optimized for running in Google Colab with port exposure:
-
-1. **Open Google Colab** and create a new notebook
-
-2. **Clone the repository**:
-   ```python
-   !git clone https://github.com/[your-username]/comic-crafter.git
-   %cd comic-crafter
-   ```
-
-3. **Install required packages**:
-   ```python
-   !npm install -g localtunnel
-   !pip install flask flask-cors
-   ```
-
-4. **Setup backend dependencies**:
-   ```python
-   %cd server
-   !pip install -r requirements.txt
-   ```
-
-5. **Setup the Stable Diffusion model with LORA weights**:
-   ```python
-   %cd ../utils
-   !python setup_sd.py
-   ```
-   This step downloads the base model and checks for LORA weights. The LORA weights should already be in the `../models/weights/` directory.
-
-6. **Start the backend service in the background**:
-   ```python
-   import subprocess
-   import time
-   import nest_asyncio
-
-   # This is needed for running async operations in Colab
-   nest_asyncio.apply()
-
-   # Start the Flask backend service in the background
-   %cd ../server
-   backend_process = subprocess.Popen(['python', 'app.py'])
-
-   # Wait a moment for the server to start
-   time.sleep(3)
-   print("Backend service started with LORA weights!")
-   ```
-
-7. **Expose the backend service with localtunnel**:
-   ```python
-   import threading
-   import time
-   import requests
-   import json
-
-   # Function to start localtunnel
-   def start_local_tunnel(port=5000):
-       import subprocess
-       import time
-       
-       # Start localtunnel in a subprocess
-       tunnel_process = subprocess.Popen([
-           'lt', '-p', str(port)
-       ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-       
-       # Wait a moment and capture the URL
-       time.sleep(3)
-       
-       # Check the process output for the URL
-       outs, errs = tunnel_process.communicate(timeout=10)
-       
-       # If the process is still running, we'll monitor it in a non-blocking way
-       print("LocalTunnel started - monitoring for URL...")
-       return tunnel_process
-
-   # Start the tunnel
-   tunnel_process = start_local_tunnel(5000)
-   print("Backend service tunnel process started!")
-   
-   # Wait a bit more for the URL to be generated
-   time.sleep(5)
-   
-   # Note: With localtunnel, the URL will be printed to the console by the process
-   # You can see the URL in the Colab output
-   print("Check the output above for the localtunnel URL")
-   ```
-
-8. **Alternative approach for localtunnel in Colab**:
-   ```python
-   import subprocess
-   import threading
-   import time
-   import re
-
-   def create_tunnel():
-       # Start the localtunnel command
-       result = subprocess.run(['lt', '--port', '5000'], 
-                              stdout=subprocess.PIPE, 
-                              stderr=subprocess.PIPE, 
-                              text=True)
-       return result
-
-   def create_tunnel_background():
-       # Run localtunnel in the background and print the URL
-       import os
-       os.system('lt --port 5000 &')
-       print("LocalTunnel started in background! Check output above for the URL")
-
-   # Run localtunnel in the background
-   create_tunnel_background()
-   
-   # Wait for URL to appear in output
-   time.sleep(3)
-   print("LocalTunnel should now be running! Look for the URL in the output above.")
-   ```
-
-9. **Setup and serve the frontend**:
-   ```python
-   # Install Node.js in Colab (if needed)
-   !curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-   !sudo apt-get install -y nodejs
-
-   # Navigate to client directory and install dependencies
-   %cd ../client
-   !npm install
-
-   # Build the React app
-   !npm run build
-   ```
-
-10. **Serve the frontend and expose it with localtunnel**:
-    ```python
-    import http.server
-    import socketserver
-    from threading import Thread
-    import subprocess
-    import time
-
-    # Serve the built frontend using Python's http.server
-    PORT = 3000
-    DIRECTORY = "dist"  # The built React app directory
-
-    class Handler(http.server.SimpleHTTPRequestHandler):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=DIRECTORY, **kwargs)
-
-    # Start server in a separate thread
-    def start_server():
-        with socketserver.TCPServer(("", PORT), Handler) as httpd:
-            httpd.serve_forever()
-
-    server_thread = Thread(target=start_server, daemon=True)
-    server_thread.start()
-
-    # Expose the frontend with localtunnel
-    frontend_tunnel = subprocess.Popen(['lt', '--port', str(PORT)])
-    print(f"Frontend localtunnel started! Check output above for URL")
-    ```
-
-## LORA Weights Integration
-
-This project includes fine-tuned LORA weights specifically trained for Japanese manga style comic generation:
-
-- Located in the `models/weights/` directory
-- Automatically loaded by both the API server and standalone generation scripts
-- Enhances the base Stable Diffusion model for manga-style output
-- Trained on thousands of manga/comic images for authentic results
-
-## Ollama Setup in Google Colab
-
-If you want to use Ollama for local LLM capabilities in your Comic Crafter project:
-
-1. **Install lshw before Ollama**:
-   ```python
-   # First install lshw (required for Ollama installation)
-   !apt-get install -y lshw
-   ```
-
-2. **Install Ollama**:
-   ```python
-   # Download and install Ollama
-   !curl -fsSL https://ollama.ai/install.sh | sh
-   ```
-
-3. **Set up Ollama to run in the background with nohup** (Recommended):
-   ```python
-   import os
-   import time
-
-   # 1. Install lshw (if not already done)
-   !apt-get update && apt-get install -y lshw
-
-   # 2. Run Ollama server in the background
-   # We use nohup to keep it running and redirect output to a file
-   !nohup ollama serve > ollama.log 2>&1 &
-
-   # 3. Wait a moment for the server to start up
-   time.sleep(5)
-
-   print("Ollama server started in background with nohup!")
-   print("Check status with: !cat ollama.log")
-   ```
-
-4. **Pull required models in the background** (Recommended approach):
-   ```python
-   # Pull models in the background with nohup
-   models_to_pull = ['llama3', 'mistral', 'codellama']
-
-   for model in models_to_pull:
-       print(f"Pulling {model} in background with nohup...")
-       command = f"nohup ollama pull {model} > pull_{model}.log 2>&1 &"
-       os.system(command)
-       print(f"Started pulling {model}, check progress with: !cat pull_{model}.log")
-
-   print("All model pulls started in background!")
-   ```
-
-5. **Complete Ollama setup using the provided script**:
-   ```python
-   # Use the provided setup script for a complete installation
-   %cd utils
-   import ollama_setup
-   
-   # Run the setup with nohup (recommended)
-   models_to_pull = ['llama3', 'mistral', 'codellama']
-   ollama_setup.setup_ollama_with_models(models_to_pull, use_nohup=True)
-   ```
-
-## Running in Background for Colab Sessions
-
-To ensure services run in the background throughout your Colab session:
-
-```python
-import atexit
-import subprocess
-import time
-
-# Define the processes
-processes = []
-
-# Function to start services
-def start_services():
-    # Start backend API
-    %cd /content/comic-crafter/server
-    backend = subprocess.Popen(['python', 'app.py'])
-    processes.append(backend)
-    
-    time.sleep(3)  # Wait for backend to start
-    
-    print("Backend API running!")
-    
-    return backend
-
-# Start all services
-backend_process = start_services()
-
-# Ensure processes are cleaned up on exit
-def cleanup():
-    for process in processes:
-        try:
-            process.terminate()
-        except:
-            pass
-
-atexit.register(cleanup)
-
-print("All services running in background!")
-```
+A local deployment of Comic Crafter with Stable Diffusion running locally and story generation via Open Router API.
 
 ## Features
 
-- **AI-Powered Image Generation**: Generate comic-style images using Stable Diffusion with LORA fine-tuning
-- **Manga-Style Focusing**: Specialized model for Japanese manga style via included LORA weights
-- **Interactive UI**: Step-by-step comic creation process
-- **Image Editing Tools**: Crop, rotate, and adjust generated images
-- **Export Functionality**: Download your created comics in various formats
-- **Cloud Ready**: Optimized for deployment on Google Colab with port forwarding
-- **Ollama Integration**: Support for local LLM models via Ollama
+- Local Stable Diffusion model with optional LORA weights for Japanese manga style
+- Story generation using Open Router's free meta-llama/llama-3.3-70b-instruct model
+- No cloud dependencies - runs entirely on your local machine
+- API endpoints compatible with AUTOMATIC1111 Stable Diffusion WebUI
+
+## Prerequisites
+
+- Python 3.8+
+- Git
+- At least 8GB RAM (16GB recommended for better performance)
+- At least 8GB free disk space for the model
+- An Open Router API key (get it for free at [https://openrouter.ai/keys](https://openrouter.ai/keys))
+
+## Quick Start
+
+### 1. Install Dependencies
+
+```bash
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install Python dependencies
+pip install -r server/requirements.txt
+```
+
+### 2. Set Up the Model
+
+```bash
+# Run the setup script to download the base model
+python utils/setup_model.py
+```
+
+### 3. Get Open Router API Key
+
+1. Visit [https://openrouter.ai/keys](https://openrouter.ai/keys)
+2. Create an account and generate an API key
+3. Set the API key as an environment variable:
+
+```bash
+export OPENROUTER_API_KEY="your-api-key-here"
+```
+
+### 4. Start the Server
+
+```bash
+# Run the server directly
+python server/app.py
+
+# Or use the start script (which handles virtual environment and API key setup)
+./start_server.sh
+```
+
+The server will be available at: `http://localhost:5000`
+
+## API Endpoints
+
+### Image Generation
+- `POST /sdapi/v1/txt2img` - Generate image from text prompt
+- `POST /sdapi/v1/img2img` - Generate image from image and text prompt
+
+### Story Generation
+- `POST /story/generate` - Generate story using Open Router
+
+### Utilities
+- `GET /health` - Health check
+- `GET /sdapi/v1/sd-models` - Get available models
+- `POST /sdapi/v1/options` - Set options (stub implementation)
 
 ## Configuration
 
-### Environment Variables
+You can configure the application using environment variables:
 
-For the frontend (client/.env):
-```
-VITE_API_BASE_URL=https://your-localtunnel-url.loca.lt
+```bash
+# Model configuration
+export SD_BASE_MODEL_ID="runwayml/stable-diffusion-v1-5"  # Base model
+export SD_LORA_PATH="./models/weights"                     # Path to LORA weights
+export SD_LORA_WEIGHT="pytorch_lora_weights.safetensors"  # LORA weight filename
+export SD_CACHE_DIR="./cache"                             # Model cache directory
+export SD_OUTPUT_DIR="./outputs"                          # Generated image directory
+
+# Server configuration
+export SD_API_PORT=5000                                   # API port
+export SD_API_HOST="0.0.0.0"                             # API host
+export OPENROUTER_API_KEY="your-api-key-here"            # Open Router API key
 ```
 
-For the server (environment variables):
-```
-SD_BASE_MODEL_ID=runwayml/stable-diffusion-v1-5  # Base model
-SD_LORA_PATH=../models/weights                   # Path to LORA weights
-SD_LORA_WEIGHT=pytorch_lora_weights.safetensors # LORA weight filename
-SD_API_PORT=5000                                # API port
-SD_API_HOST=0.0.0.0                             # API host
+## Adding LORA Weights
+
+To use LORA weights for specialized styles:
+
+1. Place your LORA weights file in `./models/weights/`
+2. Make sure the filename matches the `SD_LORA_WEIGHT` environment variable (default: `pytorch_lora_weights.safetensors`)
+3. The server will automatically load the LORA weights on startup
+
+## Example API Usage
+
+### Generate an image from text:
+
+```bash
+curl -X POST http://localhost:5000/sdapi/v1/txt2img \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "a samurai warrior in traditional armor",
+    "width": 512,
+    "height": 512,
+    "steps": 20
+  }'
 ```
 
-### API Endpoints
+### Generate a story:
 
-The backend server provides the following endpoints:
-- `GET /` - Health check
-- `POST /generate` - Generate image from prompt
-- `POST /edit` - Edit existing image
-- `POST /export` - Export comic in various formats
-- `GET /health` - Model loading status with LORA check
+```bash
+curl -X POST http://localhost:5000/story/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a short superhero story about a character who gains the power to control shadows.",
+    "max_tokens": 300
+  }'
+```
 
 ## Troubleshooting
 
-1. **Port Issues**: If you get port binding errors, try different ports (5001, 5002, etc.)
+1. **Memory Issues**: If you encounter memory errors, try reducing the image dimensions or using a smaller model.
 
-2. **LocalTunnel Connection**: If localtunnel fails, make sure you have installed it with `!npm install -g localtunnel`
+2. **Model Download**: The first run will take time as it downloads the base model (~5GB). Subsequent runs will use the local copy.
 
-3. **GPU Memory**: In Colab, use Runtime > Change runtime type > GPU for better performance
+3. **API Key Issues**: Make sure your Open Router API key is correctly set in the environment variables.
 
-4. **Model Download**: The first run will take time as it downloads the base model
+4. **CUDA Issues**: If you have a GPU but encounter CUDA errors, ensure you have the correct PyTorch version for your CUDA version.
 
-5. **LORA Weights**: Ensure the `pytorch_lora_weights.safetensors` file is in the `models/weights/` directory
+5. **Port Issues**: If port 5000 is already in use, you can change it with the SD_API_PORT environment variable.
 
-6. **Backend Connection**: Make sure your frontend is configured to connect to the correct backend URL
+## Directory Structure
 
-7. **File Permissions**: If you encounter permission issues in Colab, use `!chmod +x` to make scripts executable
-
-8. **Ollama Installation**: If Ollama installation fails, ensure you've installed lshw first and check available system resources
-
-9. **Background Processes**: If background processes stop unexpectedly, check Colab's runtime logs for errors
-
-10. **Ollama nohup**: If using nohup, check logs with `!cat ollama.log` to confirm the server is running
-
-11. **LocalTunnel URLs**: LocalTunnel URLs are temporary and change each time you restart the tunnel
+```
+comic_crafter_local/
+├── server/                 # Backend API server
+│   ├── app.py             # Main Flask application
+│   └── requirements.txt   # Python dependencies
+├── utils/                 # Utility scripts
+│   └── setup_model.py     # Script to download and set up the model
+├── models/                # Model files
+│   ├── base_model/        # Downloaded base model
+│   └── weights/           # LORA weights directory
+├── start_server.sh        # Convenience script to start the server
+├── README.md              # This file
+└── .env.example           # Example environment file
+```
 
 ## License
 
