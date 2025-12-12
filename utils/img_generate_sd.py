@@ -5,8 +5,8 @@ from diffusers import AutoPipelineForText2Image
 
 # --- Configuration ---
 # Update these paths to match your folder structure
-BASE_MODEL_PATH = "./local_base_model"
-LORA_PATH = "/mnt/0CD6E45504E842C3/7Sem_Project/web_ui/Final_Github/Comic_Crafter/web_UI/local_base_model/weights"
+BASE_MODEL_PATH = "../utils/local_base_model"  # Path to the downloaded base model
+LORA_PATH = "../models/weights"  # Path to LORA weights directory
 LORA_WEIGHT_FILENAME = "pytorch_lora_weights.safetensors"
 
 # --- Global Storage ---
@@ -44,11 +44,17 @@ def load_model():
 
         # 3. Load LoRA
         print(f"Loading LoRA weights from {LORA_PATH}...")
-        pipe.load_lora_weights(
-            LORA_PATH,
-            weight_name=LORA_WEIGHT_FILENAME,
-            adapter_name="custom_style"
-        )
+        lora_full_path = os.path.join(LORA_PATH, LORA_WEIGHT_FILENAME)
+        if os.path.exists(lora_full_path):
+            pipe.load_lora_weights(
+                LORA_PATH,
+                weight_name=LORA_WEIGHT_FILENAME,
+                adapter_name="comic_style"
+            )
+            print(f"LoRA weights loaded successfully from {lora_full_path}")
+        else:
+            print(f"Warning: LoRA weights not found at {lora_full_path}")
+            print("Proceeding with base model only...")
 
         # Assign to global variable
         _pipeline = pipe

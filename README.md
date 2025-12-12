@@ -1,6 +1,6 @@
 # Comic Crafter
 
-A web application for creating comics with AI-generated images, built with React frontend and Python backend services.
+A web application for creating comics with AI-generated images, built with React frontend and Python backend services. Features fine-tuned LORA weights for Japanese manga style generation.
 
 ## Project Structure
 
@@ -13,13 +13,17 @@ A web application for creating comics with AI-generated images, built with React
 │   ├── package.json        # Dependencies and scripts
 │   └── ...
 ├── server/                 # Backend API services
-│   ├── app.py              # Main Flask application
+│   ├── app.py              # Main Flask application with LORA integration
 │   ├── requirements.txt    # Python dependencies
 │   └── ...
 ├── utils/                  # Python utility scripts
 │   ├── setup_sd.py         # Script to download and set up the base model
-│   ├── img_generate_sd.py  # Script for image generation
+│   ├── img_generate_sd.py  # Script for image generation with LORA weights
+│   ├── ollama_setup.py     # Script for Ollama setup in Google Colab
 │   └── ...
+├── models/                 # Trained models including LORA weights
+│   └── weights/            # LORA fine-tuned weights for comic generation
+│       └── pytorch_lora_weights.safetensors # Fine-tuned model weights
 ├── docs/                   # Documentation files
 ├── README.md               # This file
 └── package.json            # Root package configuration
@@ -74,11 +78,12 @@ A web application for creating comics with AI-generated images, built with React
    pip install -r requirements.txt
    ```
 
-4. Download the base model (if not already done):
+4. Download the base model and ensure LORA weights are in place:
    ```bash
    cd ../utils
    python setup_sd.py
    ```
+   This will check for and use the LORA weights in the models directory.
 
 5. Start the backend server:
    ```bash
@@ -109,12 +114,12 @@ This setup is optimized for running in Google Colab with port exposure:
    !pip install -r requirements.txt
    ```
 
-5. **Setup the Stable Diffusion model**:
+5. **Setup the Stable Diffusion model with LORA weights**:
    ```python
    %cd ../utils
    !python setup_sd.py
    ```
-   This step downloads the base model and may take a few minutes.
+   This step downloads the base model and checks for LORA weights. The LORA weights should already be in the `../models/weights/` directory.
 
 6. **Start the backend service in the background**:
    ```python
@@ -132,7 +137,7 @@ This setup is optimized for running in Google Colab with port exposure:
 
    # Wait a moment for the server to start
    time.sleep(3)
-   print("Backend service started!")
+   print("Backend service started with LORA weights!")
    ```
 
 7. **Expose the backend service with ngrok**:
@@ -184,6 +189,75 @@ This setup is optimized for running in Google Colab with port exposure:
    print(f"Frontend exposed at: {frontend_url}")
    ```
 
+## LORA Weights Integration
+
+This project includes fine-tuned LORA weights specifically trained for Japanese manga style comic generation:
+
+- Located in the `models/weights/` directory
+- Automatically loaded by both the API server and standalone generation scripts
+- Enhances the base Stable Diffusion model for manga-style output
+- Trained on thousands of manga/comic images for authentic results
+
+## Ollama Setup in Google Colab
+
+If you want to use Ollama for local LLM capabilities in your Comic Crafter project:
+
+1. **Install lshw before Ollama**:
+   ```python
+   # First install lshw (required for Ollama installation)
+   !apt-get install -y lshw
+   ```
+
+2. **Install Ollama**:
+   ```python
+   # Download and install Ollama
+   !curl -fsSL https://ollama.ai/install.sh | sh
+   ```
+
+3. **Set up Ollama to run in the background with nohup** (Recommended):
+   ```python
+   import os
+   import time
+
+   # 1. Install lshw (if not already done)
+   !apt-get update && apt-get install -y lshw
+
+   # 2. Run Ollama server in the background
+   # We use nohup to keep it running and redirect output to a file
+   !nohup ollama serve > ollama.log 2>&1 &
+
+   # 3. Wait a moment for the server to start up
+   time.sleep(5)
+
+   print("Ollama server started in background with nohup!")
+   print("Check status with: !cat ollama.log")
+   ```
+
+4. **Pull required models in the background** (Recommended approach):
+   ```python
+   # Pull models in the background with nohup
+   models_to_pull = ['llama3', 'mistral', 'codellama']
+
+   for model in models_to_pull:
+       print(f"Pulling {model} in background with nohup...")
+       command = f"nohup ollama pull {model} > pull_{model}.log 2>&1 &"
+       os.system(command)
+       print(f"Started pulling {model}, check progress with: !cat pull_{model}.log")
+
+   print("All model pulls started in background!")
+   ```
+
+5. **Complete Ollama setup using the provided script**:
+   ```python
+   # Use the provided setup script for a complete installation
+   %cd utils
+   import ollama_setup
+   
+   # Run the setup with nohup (recommended)
+   models_to_pull = ['llama3', 'mistral', 'codellama']
+   ollama_setup.setup_ollama_with_models(models_to_pull, use_nohup=True)
+   ```
+
 ## Running in Background for Colab Sessions
 
 To ensure services run in the background throughout your Colab session:
@@ -231,12 +305,13 @@ print(f"API Base URL: {api_url}")
 
 ## Features
 
-- **AI-Powered Image Generation**: Generate comic-style images using Stable Diffusion
-- **Manga-Style Focusing**: Specialized model for Japanese manga style
+- **AI-Powered Image Generation**: Generate comic-style images using Stable Diffusion with LORA fine-tuning
+- **Manga-Style Focusing**: Specialized model for Japanese manga style via included LORA weights
 - **Interactive UI**: Step-by-step comic creation process
 - **Image Editing Tools**: Crop, rotate, and adjust generated images
 - **Export Functionality**: Download your created comics in various formats
 - **Cloud Ready**: Optimized for deployment on Google Colab with port forwarding
+- **Ollama Integration**: Support for local LLM models via Ollama
 
 ## Configuration
 
@@ -247,6 +322,15 @@ For the frontend (client/.env):
 VITE_API_BASE_URL=https://your-ngrok-url.ngrok-free.app
 ```
 
+For the server (environment variables):
+```
+SD_BASE_MODEL_ID=runwayml/stable-diffusion-v1-5  # Base model
+SD_LORA_PATH=../models/weights                   # Path to LORA weights
+SD_LORA_WEIGHT=pytorch_lora_weights.safetensors # LORA weight filename
+SD_API_PORT=5000                                # API port
+SD_API_HOST=0.0.0.0                             # API host
+```
+
 ### API Endpoints
 
 The backend server provides the following endpoints:
@@ -254,6 +338,7 @@ The backend server provides the following endpoints:
 - `POST /generate` - Generate image from prompt
 - `POST /edit` - Edit existing image
 - `POST /export` - Export comic in various formats
+- `GET /health` - Model loading status with LORA check
 
 ## Troubleshooting
 
@@ -263,11 +348,19 @@ The backend server provides the following endpoints:
 
 3. **GPU Memory**: In Colab, use Runtime > Change runtime type > GPU for better performance
 
-4. **Model Download**: The first run will take time as it downloads the Stable Diffusion model
+4. **Model Download**: The first run will take time as it downloads the base model
 
-5. **Backend Connection**: Make sure your frontend is configured to connect to the correct backend URL
+5. **LORA Weights**: Ensure the `pytorch_lora_weights.safetensors` file is in the `models/weights/` directory
 
-6. **File Permissions**: If you encounter permission issues in Colab, use `!chmod +x` to make scripts executable
+6. **Backend Connection**: Make sure your frontend is configured to connect to the correct backend URL
+
+7. **File Permissions**: If you encounter permission issues in Colab, use `!chmod +x` to make scripts executable
+
+8. **Ollama Installation**: If Ollama installation fails, ensure you've installed lshw first and check available system resources
+
+9. **Background Processes**: If background processes stop unexpectedly, check Colab's runtime logs for errors
+
+10. **Ollama nohup**: If using nohup, check logs with `!cat ollama.log` to confirm the server is running
 
 ## License
 
