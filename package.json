@@ -1,0 +1,28 @@
+{
+  "name": "comic-crafter",
+  "version": "1.0.0",
+  "description": "A web application for creating comics with AI-generated images",
+  "main": "index.js",
+  "scripts": {
+    "client:install": "cd client && npm install",
+    "client:dev": "cd client && npm run dev",
+    "client:build": "cd client && npm run build",
+    "server:install": "cd server && pip install -r requirements.txt",
+    "server:start": "cd server && python app.py",
+    "utils:setup": "cd utils && python setup_sd.py",
+    "setup": "npm run client:install && npm run server:install",
+    "dev": "echo 'Run server first, then client: Run npm run server:start in one terminal and npm run client:dev in another'",
+    "start": "echo 'For production, build client and serve with a web server, then start server'"
+  },
+  "keywords": ["react", "python", "flask", "ai", "comic", "generator", "stable-diffusion"],
+  "author": "Comic Crafter Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/comic-crafter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/comic-crafter/issues"
+  },
+  "homepage": "https://github.com/your-username/comic-crafter#readme"
+}
