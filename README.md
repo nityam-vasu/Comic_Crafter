@@ -260,65 +260,25 @@ This project includes fine-tuned LORA weights specifically trained for Japanese 
 - Enhances the base Stable Diffusion model for manga-style output
 - Trained on thousands of manga/comic images for authentic results
 
-## Ollama Setup in Google Colab
+## Open Router Story Generation
 
-If you want to use Ollama for local LLM capabilities in your Comic Crafter project:
+Comic Crafter now uses Open Router with the free meta-llama/llama-3.3-70b-instruct model for story generation:
 
-1. **Install lshw before Ollama**:
-   ```python
-   # First install lshw (required for Ollama installation)
-   !apt-get install -y lshw
-   ```
+1. **Get your free API key**:
+   - Visit [https://openrouter.ai/keys](https://openrouter.ai/keys)
+   - Create an account and generate an API key
+   - Keep your API key secure
 
-2. **Install Ollama**:
-   ```python
-   # Download and install Ollama
-   !curl -fsSL https://ollama.ai/install.sh | sh
-   ```
-
-3. **Set up Ollama to run in the background with nohup** (Recommended):
+2. **Set your API key in the environment**:
    ```python
    import os
-   import time
-
-   # 1. Install lshw (if not already done)
-   !apt-get update && apt-get install -y lshw
-
-   # 2. Run Ollama server in the background
-   # We use nohup to keep it running and redirect output to a file
-   !nohup ollama serve > ollama.log 2>&1 &
-
-   # 3. Wait a moment for the server to start up
-   time.sleep(5)
-
-   print("Ollama server started in background with nohup!")
-   print("Check status with: !cat ollama.log")
+   os.environ['OPENROUTER_API_KEY'] = 'your-openrouter-api-key-here'
    ```
 
-4. **Pull required models in the background** (Recommended approach):
-   ```python
-   # Pull models in the background with nohup
-   models_to_pull = ['llama3', 'mistral', 'codellama']
-
-   for model in models_to_pull:
-       print(f"Pulling {model} in background with nohup...")
-       command = f"nohup ollama pull {model} > pull_{model}.log 2>&1 &"
-       os.system(command)
-       print(f"Started pulling {model}, check progress with: !cat pull_{model}.log")
-
-   print("All model pulls started in background!")
-   ```
-
-5. **Complete Ollama setup using the provided script**:
-   ```python
-   # Use the provided setup script for a complete installation
-   %cd utils
-   import ollama_setup
-   
-   # Run the setup with nohup (recommended)
-   models_to_pull = ['llama3', 'mistral', 'codellama']
-   ollama_setup.setup_ollama_with_models(models_to_pull, use_nohup=True)
-   ```
+3. **Generate stories using the API endpoint**:
+   - POST to `/story/generate` with your prompt
+   - The endpoint returns generated stories with model information
+   - Uses the meta-llama/llama-3.3-70b-instruct:free model
 
 ## Running in Background for Colab Sessions
 
@@ -369,7 +329,7 @@ print("All services running in background!")
 - **Image Editing Tools**: Crop, rotate, and adjust generated images
 - **Export Functionality**: Download your created comics in various formats
 - **Cloud Ready**: Optimized for deployment on Google Colab with port forwarding
-- **Ollama Integration**: Support for local LLM models via Ollama
+- **Open Router Integration**: Support for story generation using free meta-llama/llama-3.3-70b-instruct model
 
 ## Configuration
 

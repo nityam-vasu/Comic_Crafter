@@ -7,6 +7,8 @@ import base64
 from PIL import Image
 import uuid
 import logging
+import openai
+import requests
 
 app = Flask(__name__)
 
@@ -236,6 +238,86 @@ def get_models():
         logger.error(f"Error in get_models: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/sdapi/v1/options", methods=["POST"])
+def set_options():
+    """Set Stable Diffusion options (stub implementation)"""
+    try:
+        data = request.get_json()
+        logger.info(f"Setting options: {data}")
+        return jsonify({"status": "options set"})
+    except Exception as e:
+        logger.error(f"Error in set_options: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/sdapi/v1/sd-models", methods=["GET"])
+def get_models():
+    """Get available models (stub implementation)"""
+    try:
+        return jsonify([{
+            "title": "Comic Style Model (with LORA)",
+            "model_name": "comic-style-lora",
+            "hash": "lora-enhanced"
+        }])
+    except Exception as e:
+        logger.error(f"Error in get_models: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/story/generate", methods=["POST"])
+def generate_story():
+    """Generate a story using Open Router with Llama 3.3 70B model"""
+    try:
+        data = request.get_json()
+
+        prompt = data.get("prompt", "")
+        max_tokens = data.get("max_tokens", 500)
+        temperature = data.get("temperature", 0.7)
+
+        # Get Open Router API key from environment variable
+        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+        if not openrouter_api_key:
+            return jsonify({"error": "OPENROUTER_API_KEY environment variable not set"}), 500
+
+        # Prepare the request to Open Router
+        headers = {
+            "Authorization": f"Bearer {openrouter_api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": os.getenv("APP_URL", "http://localhost:5000"),
+            "X-Title": "Comic Crafter"
+        }
+
+        payload = {
+            "model": "meta-llama/llama-3.3-70b-instruct:free",
+            "messages": [
+                {"role": "system", "content": "You are a creative storyteller that specializes in generating engaging, imaginative stories for comic books. Your stories should be vivid, detailed, and perfect for adaptation into visual comics."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=payload
+        )
+
+        if response.status_code != 200:
+            logger.error(f"Open Router API error: {response.text}")
+            return jsonify({"error": f"Story generation failed with status {response.status_code}"}), 500
+
+        result = response.json()
+        story_text = result['choices'][0]['message']['content'].strip()
+
+        return jsonify({
+            "story": story_text,
+            "model_used": "meta-llama/llama-3.3-70b-instruct:free",
+            "tokens_used": result.get('usage', {}).get('total_tokens', 0)
+        })
+
+    except Exception as e:
+        logger.error(f"Error in generate_story: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/health", methods=["GET"])
 def health():
     """Health check endpoint"""
@@ -247,9 +329,10 @@ def health():
         lora_loaded = pipe.loaded_lora is not None
 
     return jsonify({
-        "status": "ok", 
+        "status": "ok",
         "model_loaded": pipe is not None,
-        "lora_loaded": lora_loaded
+        "lora_loaded": lora_loaded,
+        "story_generation_enabled": bool(os.getenv("OPENROUTER_API_KEY"))
     })
 
 if __name__ == "__main__":
