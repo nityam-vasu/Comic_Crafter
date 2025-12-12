@@ -105,7 +105,8 @@ This setup is optimized for running in Google Colab with port exposure:
 
 3. **Install required packages**:
    ```python
-   !pip install pyngrok flask flask-cors
+   !npm install -g localtunnel
+   !pip install flask flask-cors
    ```
 
 4. **Setup backend dependencies**:
@@ -125,7 +126,6 @@ This setup is optimized for running in Google Colab with port exposure:
    ```python
    import subprocess
    import time
-   from pyngrok import ngrok
    import nest_asyncio
 
    # This is needed for running async operations in Colab
@@ -140,14 +140,75 @@ This setup is optimized for running in Google Colab with port exposure:
    print("Backend service started with LORA weights!")
    ```
 
-7. **Expose the backend service with ngrok**:
+7. **Expose the backend service with localtunnel**:
    ```python
-   # Create a tunnel to the backend service running on port 5000
-   public_url = ngrok.connect(5000)
-   print(f"Backend service exposed at: {public_url}")
+   import threading
+   import time
+   import requests
+   import json
+
+   # Function to start localtunnel
+   def start_local_tunnel(port=5000):
+       import subprocess
+       import time
+       
+       # Start localtunnel in a subprocess
+       tunnel_process = subprocess.Popen([
+           'lt', '-p', str(port)
+       ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+       
+       # Wait a moment and capture the URL
+       time.sleep(3)
+       
+       # Check the process output for the URL
+       outs, errs = tunnel_process.communicate(timeout=10)
+       
+       # If the process is still running, we'll monitor it in a non-blocking way
+       print("LocalTunnel started - monitoring for URL...")
+       return tunnel_process
+
+   # Start the tunnel
+   tunnel_process = start_local_tunnel(5000)
+   print("Backend service tunnel process started!")
+   
+   # Wait a bit more for the URL to be generated
+   time.sleep(5)
+   
+   # Note: With localtunnel, the URL will be printed to the console by the process
+   # You can see the URL in the Colab output
+   print("Check the output above for the localtunnel URL")
    ```
 
-8. **Setup and serve the frontend**:
+8. **Alternative approach for localtunnel in Colab**:
+   ```python
+   import subprocess
+   import threading
+   import time
+   import re
+
+   def create_tunnel():
+       # Start the localtunnel command
+       result = subprocess.run(['lt', '--port', '5000'], 
+                              stdout=subprocess.PIPE, 
+                              stderr=subprocess.PIPE, 
+                              text=True)
+       return result
+
+   def create_tunnel_background():
+       # Run localtunnel in the background and print the URL
+       import os
+       os.system('lt --port 5000 &')
+       print("LocalTunnel started in background! Check output above for the URL")
+
+   # Run localtunnel in the background
+   create_tunnel_background()
+   
+   # Wait for URL to appear in output
+   time.sleep(3)
+   print("LocalTunnel should now be running! Look for the URL in the output above.")
+   ```
+
+9. **Setup and serve the frontend**:
    ```python
    # Install Node.js in Colab (if needed)
    !curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -161,33 +222,34 @@ This setup is optimized for running in Google Colab with port exposure:
    !npm run build
    ```
 
-9. **Serve the frontend and expose it** (alternative approach):
-   ```python
-   import http.server
-   import socketserver
-   from threading import Thread
+10. **Serve the frontend and expose it with localtunnel**:
+    ```python
+    import http.server
+    import socketserver
+    from threading import Thread
+    import subprocess
+    import time
 
-   # Serve the built frontend using Python's http.server
-   PORT = 3000
-   DIRECTORY = "dist"  # The built React app directory
+    # Serve the built frontend using Python's http.server
+    PORT = 3000
+    DIRECTORY = "dist"  # The built React app directory
 
-   class Handler(http.server.SimpleHTTPRequestHandler):
-       def __init__(self, *args, **kwargs):
-           super().__init__(*args, directory=DIRECTORY, **kwargs)
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=DIRECTORY, **kwargs)
 
-   # Start server in a separate thread
-   def start_server():
-       with socketserver.TCPServer(("", PORT), Handler) as httpd:
-           httpd.serve_forever()
+    # Start server in a separate thread
+    def start_server():
+        with socketserver.TCPServer(("", PORT), Handler) as httpd:
+            httpd.serve_forever()
 
-   server_thread = Thread(target=start_server, daemon=True)
-   server_thread.start()
+    server_thread = Thread(target=start_server, daemon=True)
+    server_thread.start()
 
-   # Expose the frontend with ngrok
-   from pyngrok import ngrok
-   frontend_url = ngrok.connect(PORT, "http")
-   print(f"Frontend exposed at: {frontend_url}")
-   ```
+    # Expose the frontend with localtunnel
+    frontend_tunnel = subprocess.Popen(['lt', '--port', str(PORT)])
+    print(f"Frontend localtunnel started! Check output above for URL")
+    ```
 
 ## LORA Weights Integration
 
@@ -266,7 +328,6 @@ To ensure services run in the background throughout your Colab session:
 import atexit
 import subprocess
 import time
-from pyngrok import ngrok
 
 # Define the processes
 processes = []
@@ -280,14 +341,12 @@ def start_services():
     
     time.sleep(3)  # Wait for backend to start
     
-    # Expose backend via ngrok
-    backend_tunnel = ngrok.connect(5000)
-    print(f"Backend API running at: {backend_tunnel}")
+    print("Backend API running!")
     
-    return backend_tunnel
+    return backend
 
 # Start all services
-api_url = start_services()
+backend_process = start_services()
 
 # Ensure processes are cleaned up on exit
 def cleanup():
@@ -300,7 +359,6 @@ def cleanup():
 atexit.register(cleanup)
 
 print("All services running in background!")
-print(f"API Base URL: {api_url}")
 ```
 
 ## Features
@@ -319,7 +377,7 @@ print(f"API Base URL: {api_url}")
 
 For the frontend (client/.env):
 ```
-VITE_API_BASE_URL=https://your-ngrok-url.ngrok-free.app
+VITE_API_BASE_URL=https://your-localtunnel-url.loca.lt
 ```
 
 For the server (environment variables):
@@ -344,7 +402,7 @@ The backend server provides the following endpoints:
 
 1. **Port Issues**: If you get port binding errors, try different ports (5001, 5002, etc.)
 
-2. **ngrok Connection**: If ngrok fails, ensure you have an active internet connection
+2. **LocalTunnel Connection**: If localtunnel fails, make sure you have installed it with `!npm install -g localtunnel`
 
 3. **GPU Memory**: In Colab, use Runtime > Change runtime type > GPU for better performance
 
@@ -361,6 +419,8 @@ The backend server provides the following endpoints:
 9. **Background Processes**: If background processes stop unexpectedly, check Colab's runtime logs for errors
 
 10. **Ollama nohup**: If using nohup, check logs with `!cat ollama.log` to confirm the server is running
+
+11. **LocalTunnel URLs**: LocalTunnel URLs are temporary and change each time you restart the tunnel
 
 ## License
 
